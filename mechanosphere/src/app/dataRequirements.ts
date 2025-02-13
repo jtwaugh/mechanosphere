@@ -27,114 +27,104 @@ export const objectiveOptions = [
 
 export const globalDataRequirements = {
   Jobs: {
-    index: ["job_id"],
+    index: "job_id",
     columns: ["job_name", "job_due_date"]
+  }
+};
+
+export const tables = {
+  Machines: { 
+    index: "machine_id",  
+    columns: ["machine_name"]
+  },
+  ProcessingTimes: { 
+    index: "processing_time_id",
+    columns: ["job_id", "processing_time"]
+  },
+  Routing: { 
+    index: "routing_id",
+    columns: ["job_id", "step_number", "machine_id"]
+  },
+  StageAssignments: { 
+    index: "stage_assignment_id",
+    columns: ["stage_id", "machine_id"]
+  },
+  PrecedenceConstraints: { 
+    columns: ["job_id_before", "job_id_after"], 
+    index: "precedence_constraint_id" 
+  },
+  ResourceConstraints: { 
+    index: "resource_constraint_id", 
+    columns: ["resource_id", "job_id", "amount_required"] 
+  },
+  Resources: { 
+    index: "resource_id", 
+    columns: ["resource_name", "total_available"] 
+  },
+  Weights: { 
+    index: "weight_id", 
+    columns: ["job_id", "weight"] 
+  },
+  Jobs: { 
+    index: "job_id",  
+    columns: ["job_name", "job_due_date"]
+  },
+  MachineSpeedFactors: { 
+    index: "machine_speed_factor_id",
+    columns: ["machine_id", "machine_speed_factor"]
+  },
+  SetupTimes: { 
+    index: "setup_time_id",
+    columns: ["job_id_before", "job_id_after", "machine_id", "setup_time"]
   }
 };
 
 export const machineEnvDataRequirements = {
   identicalParallelMachines: {
     requiredTables: {
-      Machines: { 
-        index: ["machine_id"],  
-        columns: ["machine_name"]
-      },
-      ProcessingTimes: { 
-        index: ["job_id"],
-        columns: ["processing_time"]
-      },
+      Machines: tables.Machines,
+      ProcessingTimes: tables.ProcessingTimes,
     }
   },
   uniformParallelMachines: {
     requiredTables: {
-      Machines: { 
-        index: ["machine_id"],
-        columns: ["machine_name"]
-      },
-      ProcessingTimes: { 
-        index: ["job_id", "machine_id"],
-        columns: ["processing_time"]
-      },
-      MachineSpeedFactors: { 
-        index: ["machine_id"],
-        columns: ["machine_speed_factor"]
-      },
+      Machines: tables.Machines,
+      ProcessingTimes: tables.ProcessingTimes,
+      MachineSpeedFactors: tables.MachineSpeedFactors,
     }
   },
   unrelatedParallelMachines: {
     requiredTables: {
-      Machines: { 
-        index: ["machine_id"],
-        columns: ["machine_name"]
-      },
-      ProcessingTimes: { 
-        index: ["job_id", "machine_id"],
-        columns: ["processing_time"]
-      },
+      Machines: tables.Machines,
+      ProcessingTimes: tables.ProcessingTimes,
     }
   },
   flowShop: {
     requiredTables: {
-      Machines: { 
-        index: ["machine_id"],
-        columns: ["machine_name"]
-      },
-      ProcessingTimes: { 
-        index: ["job_id", "machine_id"],
-        columns: ["processing_time"]
-      },
-      Routing: { 
-        index: ["job_id", "step_number"],
-        columns: ["step_id"]
-      },
+      Machines: tables.Machines,
+      ProcessingTimes: tables.ProcessingTimes,
+      Routing: tables.Routing,
     }
   },
   jobShop: {
     requiredTables: {
-      Machines: { 
-        index: ["machine_id"],
-        columns: ["machine_name"]
-      },
-      ProcessingTimes: { 
-        index: ["job_id", "machine_id"],
-        columns: ["processing_time"]
-      },
-      Routing: { 
-        index: ["job_id", "step_number", "machine_id"],
-        columns: ["step_id"]
-      },
+      Machines: tables.Machines,
+      ProcessingTimes: tables.ProcessingTimes,
+      Routing: tables.Routing,
     }
   },
   openShop: {
     requiredTables: {
-      Machines: { 
-        index: ["machine_id"],
-        columns: ["machine_name"]
-      },
-      ProcessingTimes: { 
-        index: ["job_id", "machine_id"],
-        columns: ["processing_time"]
-      },
+      Machines: tables.Machines,
+      ProcessingTimes: tables.ProcessingTimes,
     }
   },
   flexibleFlowShop: {
     requiredTables: {
-      Machines: { 
-        index: ["machine_id", "stage_id"],
-        columns: ["machine_name"]
-      },
-      ProcessingTimes: { 
-        index: ["job_id", "machine_id", "stage_id"],
-        columns: ["processing_time"]
-      },
-      Routing: { 
-        index: ["job_id", "step_number", "stage_id"],
-        columns: ["step_id"]
-      },
-      StageAssignments: { 
-        index: ["stage_id", "machine_id"],
-        columns: ["stage_assignment_id"]
-      },
+      Machines: tables.Machines,
+      ProcessingTimes: tables.ProcessingTimes,
+      Routing: tables.Routing,
+      StageAssignments: tables.StageAssignments,
     }
   }
 }; 
@@ -142,13 +132,13 @@ export const machineEnvDataRequirements = {
 export const constraintsDataRequirements = {
     precedenceConstraints: {
       requiredTables: {
-        PrecedenceConstraints: { columns: ["job_id_before", "job_id_after"], index: ["precedence_constraint_id"] }
+        PrecedenceConstraints: tables.PrecedenceConstraints
       }
     },
     resourceConstraints: {
       requiredTables: {
-        ResourceConstraints: { index: ["resource_id", "job_id"], columns: ["amount_required"] },
-        Resources: { index: ["resource_id"], columns: ["total_available"] },
+        ResourceConstraints: tables.ResourceConstraints,
+        Resources: tables.Resources,
       }
     },
     dueDateConstraints: {
@@ -159,7 +149,7 @@ export const constraintsDataRequirements = {
     },
     setupTimeConstraints: {
       requiredTables: {
-        SetupTimes: { index: ["job_id_before", "job_id_after", "machine_id"], columns: ["setup_time"] }
+        SetupTimes: tables.SetupTimes
       }
     }
   };
@@ -170,28 +160,29 @@ export const constraintsDataRequirements = {
     },
     wCj: {
       requiredTables: {
-        Weights: { index: ["job_id"], columns: ["weight"] },
+        Weights: tables.Weights,
       }
     },
     wTj: {
       requiredTables: {
-        Weights: { index: ["job_id"], columns: ["weight"] },
+        Weights: tables.Weights,
       }
     },
     wEj: {
       requiredTables: {
-        Weights: { index: ["job_id"], columns: ["weight"] },
+        Weights: tables.Weights,
       }
     },
     wFj: {
       requiredTables: {
-        Weights: { index: ["job_id"], columns: ["weight"] },
+        Weights: tables.Weights,
       }
     },
     wWj: {
       requiredTables: {
-        Weights: { index: ["job_id"], columns: ["weight"] },
+        Weights: tables.Weights,
       }
     }
   };
+
   

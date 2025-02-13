@@ -15,24 +15,19 @@ const RequiredTableView: React.FC<RequiredTableViewProps> = ({ title, dataRequir
       <AccordionItem value={title}>
         <AccordionTrigger>{title}</AccordionTrigger>
         <AccordionContent>
-          <div>
-            <button className="bg-blue-500 text-white px-2 py-1 rounded mb-4">Download CSV</button>
-          </div>
-            <div key={title}>
-              <div className="grid" style={{ overflowX: 'auto', gridTemplateColumns: `repeat(${dataRequirements.index.length + dataRequirements.columns.length}, minmax(0, 1fr))` }}>
-                {dataRequirements.index.map((value, index) => (
-                  <div key={index} className="font-bold border border-bg p-2">{value}</div>
-                ))}
-                {dataRequirements.columns.map((value, column) => (
-                  <div key={column} className="border border-bg p-2">{value}</div>
-                ))}
-              </div>
-              <div className="grid" style={{ overflowX: 'auto', gridTemplateColumns: `repeat(${dataRequirements.index.length + dataRequirements.columns.length}, minmax(0, 1fr))` }}>
-                {Array(dataRequirements.index.length + dataRequirements.columns.length).fill().map((_, i) => (
-                  <div key={i} className="border border-bg p-2"></div>
-                ))}
-              </div>
+          <div key={title}>
+            <div className="grid" style={{ overflowX: 'auto', gridTemplateColumns: `repeat(${1 + dataRequirements.columns.length}, minmax(0, 1fr))` }}>
+              <div key={dataRequirements.index} className="font-bold border border-bg p-2">{dataRequirements.index}</div>
+              {dataRequirements.columns.map((value, column) => (
+                <div key={column} className="border border-bg p-2">{value}</div>
+              ))}
             </div>
+            <div className="grid" style={{ overflowX: 'auto', gridTemplateColumns: `repeat(${1 + dataRequirements.columns.length}, minmax(0, 1fr))` }}>
+              {Array(1 + dataRequirements.columns.length).fill().map((_, i) => (
+                <div key={i} className="border border-bg p-2"></div>
+              ))}
+            </div>
+          </div>
         </AccordionContent>
       </AccordionItem>
     </Accordion>

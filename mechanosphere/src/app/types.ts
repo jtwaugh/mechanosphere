@@ -1,5 +1,5 @@
 export type DataTableRequirements = {
-    index: string[];
+    index: string;
     columns: string[];
 }; 
 export type SymbolDataRequirements = {

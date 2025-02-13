@@ -16,7 +16,8 @@ import {
   globalDataRequirements, 
   machineEnvDataRequirements,
   constraintsDataRequirements,
-  objectiveFunctionRequirements
+  objectiveFunctionRequirements,
+  tables
 } from './dataRequirements'; // Import the new data
 
 export default function Home() {
@@ -75,25 +76,75 @@ export default function Home() {
         <Accordion type="multiple" className="w-full">
           <AccordionItem value="data-relationships">
             <AccordionTrigger>Data Relationships</AccordionTrigger>
-              <AccordionContent>
-                <EntityMap 
-                  requiredTables={{
-                    ...machineEnvDataRequirements[selectedMachineEnv.key as keyof typeof machineEnvDataRequirements]?.requiredTables || {},
-                    ...selectedConstraints.reduce((acc, constraint) => {
-                      const constraintRequiredTables = constraintsDataRequirements[constraint.key as keyof typeof constraintsDataRequirements]?.requiredTables || {};
-                      return { ...acc, ...constraintRequiredTables };
-                    }, {}),
-                    ...objectiveFunctionRequirements[selectedObjective.key as keyof typeof objectiveFunctionRequirements]?.requiredTables || {}
-                  }} 
-                  selectedSymbol={selectedMachineEnv.symbol} 
-                />
-              </AccordionContent>
+            <AccordionContent>
+              <AccordionItem value="entity-to-table-map" className="p-2">
+                <AccordionTrigger>Entity-Table Map</AccordionTrigger>
+                <AccordionContent>
+                  <EntityMap 
+                    requiredTables={{
+                      ...globalDataRequirements,
+                      ...machineEnvDataRequirements[selectedMachineEnv.key as keyof typeof machineEnvDataRequirements]?.requiredTables || {},
+                      ...selectedConstraints.reduce((acc, constraint) => {
+                        const constraintRequiredTables = constraintsDataRequirements[constraint.key as keyof typeof constraintsDataRequirements]?.requiredTables || {};
+                        return { ...acc, ...constraintRequiredTables };
+                      }, {}),
+                      ...objectiveFunctionRequirements[selectedObjective.key as keyof typeof objectiveFunctionRequirements]?.requiredTables || {}
+                    }} 
+                    selectedSymbol={selectedMachineEnv.symbol} 
+                  />
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="partial-order" className="p-2">
+                <AccordionTrigger>Partial Order</AccordionTrigger>
+                <AccordionContent>
+                  <div style={{ width: '100%', height: '400px', position: 'relative' }}>
+                    <ReactFlow 
+                      nodes={getAllRequiredTables(selectedMachineEnv, selectedConstraints, selectedObjective).map(tableName => ({
+                        id: tableName,
+                        data: { label: tableName },
+                        position: { x: Math.random() * 1000, y: Math.random() * 1000 }, // Random positions for demo
+                      }))}
+                      edges={Object.entries(generatePartialOrder()).flatMap(([table, deps]) => 
+                        deps.map(dep => ({
+                          id: `${dep.table}-${table}`,
+                          source: dep.table,
+                          target: table,
+                          endArrowHead: true,
+                        }))
+                      )}
+                      nodesDraggable={true}
+                      style={{ width: '100%', height: '100%' }}
+                    >
+                      <MiniMap />
+                      <Controls />
+                    </ReactFlow>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="topological-sort" className="p-2">
+                <AccordionTrigger>Table-Entity Order</AccordionTrigger>
+                <AccordionContent>
+                  <div key="table-entity-order" className="flex flex-col">
+                    {topologicalSort(
+                      getAllRequiredTables(selectedMachineEnv, selectedConstraints, selectedObjective)
+                    ).reverse().map(tableName => (
+                      <div key={tableName} className="flex justify-between p-2 border-b">
+                        <span>{tableName}</span>
+                        <span>
+                          {getGeneratedEntities(tableName).join(', ') || 'None'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </AccordionContent>
           </AccordionItem>
           <AccordionItem value="data-requirements">
             <AccordionTrigger>Data Tables</AccordionTrigger>
             <AccordionContent>
               <AccordionItem value="global-tables" className="p-2">
-                <AccordionTrigger>Global Tables</AccordionTrigger>
+                <AccordionTrigger>Business Tables</AccordionTrigger>
                 <AccordionContent>
                   <DataRequirementsSection 
                     requiredTables={globalDataRequirements}
@@ -217,4 +268,90 @@ function MultiSelectDropdown({ name, symbolWidth, selected, options, onSelect }:
       </DropdownMenuContent>
     </DropdownMenu>
   );
+}
+
+function getGeneratedEntities(tableName: string): string[] {
+  // Logic to determine which entities can be generated from the given table
+  // This is a placeholder function; implement the actual logic based on your data structure
+  return []; // Return an array of entity names
+}
+
+function topologicalSort(tableNames: string[]): string[] {
+  const dependencies = generatePartialOrder();
+
+  const sorted: string[] = [];
+  const visited: Record<string, boolean> = {};
+  const tempMark: Record<string, boolean> = {};
+
+  const visit = (table: string) => {
+    if (tempMark[table]) throw new Error("Cyclic dependency detected");
+    if (!visited[table]) {
+      tempMark[table] = true;
+      dependencies[table]?.forEach(dep => visit(dep.table));
+      tempMark[table] = false;
+      visited[table] = true;
+      sorted.push(table);
+    }
+  };
+
+  tableNames.forEach(tableName => visit(tableName));
+  return sorted.reverse(); // Reverse to get the correct order
+}
+
+const getAllRequiredTables = (selectedMachineEnv: { key: string }, selectedConstraints: { key: string }[], selectedObjective: { key: string }): string[] => {
+  const requiredTables = new Set<string>();
+
+  // Union of all required tables
+  Object.keys(globalDataRequirements).forEach(table => {
+    requiredTables.add(table);
+  });
+
+  if (selectedMachineEnv.key in machineEnvDataRequirements) {
+    Object.keys(machineEnvDataRequirements[selectedMachineEnv.key as keyof typeof machineEnvDataRequirements].requiredTables).forEach(table => {
+      requiredTables.add(table);
+    });
+  }
+
+  console.log(requiredTables);
+  
+  selectedConstraints.forEach(constraint => {
+    if (constraint.key in constraintsDataRequirements) {
+      const constraintTables = Object.keys(constraintsDataRequirements[constraint.key as keyof typeof constraintsDataRequirements].requiredTables);
+      constraintTables.forEach(table => {
+        requiredTables.add(table);
+      });
+    }
+  });
+
+  console.log(requiredTables);
+  
+  if (selectedObjective.key in objectiveFunctionRequirements) {
+    Object.keys(objectiveFunctionRequirements[selectedObjective.key as keyof typeof objectiveFunctionRequirements].requiredTables).forEach(table => {
+      requiredTables.add(table);
+    });
+  }
+
+  console.log(requiredTables);
+
+  return Array.from(requiredTables);
+}
+
+function generatePartialOrder(): Record<string, { table: string; column: string }[]> {
+  const dependencies: Record<string, { table: string; column: string }[]> = {};
+
+  // Initialize dependencies
+  Object.keys(tables).forEach(tableName => {
+    dependencies[tableName] = [];
+  });
+
+  // Populate dependencies based on the rule "A < B if A's index is a column in B"
+  Object.keys(tables).forEach(A => {
+    Object.keys(tables).forEach(B => {
+      if (A !== B && tables[A].index && tables[B].columns.includes(tables[A].index)) {
+        dependencies[B].push({ table: A, column: tables[A].index });
+      }
+    });
+  });
+
+  return dependencies;
 }

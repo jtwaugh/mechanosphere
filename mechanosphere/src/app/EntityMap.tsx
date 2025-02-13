@@ -8,9 +8,7 @@ function extractUniqueEntities(requiredTables: SymbolDataRequirements | GlobalDa
     for (const column of table.columns) {
       entities.add(column);
     }
-    for (const index of table.index) {
-      entities.add(index);
-    }
+    entities.add(table.index);
   }
   return Array.from(entities);
 }
@@ -42,19 +40,17 @@ const EntityMap = ({ requiredTables, selectedSymbol }: { requiredTables: SymbolD
     
     // Create edges based on columns and index
     for (const [tableName, table] of Object.entries(requiredTables)) {
-      // Connect index to the table
-      table.index.forEach((indexColumn: string, index: number) => {
-        newEdges.push({
-          id: `${indexColumn}-${tableName}-${index}`,
-          source: indexColumn,
-          target: tableName,
-          label: 'index',
-          style: {
-            strokeWidth: 1,
-            stroke: '#000000',
-          },
-          type: 'bezier', // or any other edge type
-        });
+    
+      newEdges.push({
+        id: `${table.index}-${tableName}`,
+        source: table.index,
+        target: tableName,
+        label: 'index',
+        style: {
+          strokeWidth: 1,
+          stroke: '#000000',
+        },
+        type: 'bezier', // or any other edge type
       });
       
       // Connect columns to the table
