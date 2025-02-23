@@ -2,6 +2,11 @@ export type DataTableRequirements = {
     index: string;
     columns: string[];
 }; 
+
+export type DataTableValues = {
+  [column: string]: any[];
+};
+
 export type SymbolDataRequirements = {
   [key: string]: {
     requiredTables: {

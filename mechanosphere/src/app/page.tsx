@@ -1,7 +1,7 @@
 'use client'
 
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
 import ReactFlow, { MiniMap, Controls } from 'react-flow-renderer';
@@ -19,11 +19,15 @@ import {
   objectiveFunctionRequirements,
   tables
 } from './dataRequirements'; // Import the new data
+import { configService } from "@/services/configService";
 
 export default function Home() {
+  const [displayedConfig, setDisplayedConfig] = useState(configService.getConfig());
+  const previousConfigRef = useRef(configService.getConfig()); // Ref for previous config
   const [selectedMachineEnv, setSelectedMachineEnv] = useState<{ symbol: string, name: string, key: string }>({ symbol: '\\alpha', name: '', key: '' });
   const [selectedConstraints, setSelectedConstraints] = useState<{ symbol: string, name: string, key: string }[]>([]);
   const [selectedObjective, setSelectedObjective] = useState<{ symbol: string, name: string, key: string }>({ symbol: '\\gamma', name: '', key: '' });
+  const isConfigChanged = useRef(false);
 
   const toggleConstraint = (constraint: { symbol: string, name: string, key: string }) => {
     console.log(`Attempting to toggle constraint: ${constraint.symbol}`);
@@ -36,6 +40,21 @@ export default function Home() {
     }
   };
   
+  useEffect(() => {
+    if (isConfigChanged.current) {
+      isConfigChanged.current = false;
+      setTimeout(() => {
+        const confirmUpdate = window.confirm("Do you want to update the configuration?");
+        if (confirmUpdate) {
+          configService.updateConfig(displayedConfig);
+          previousConfigRef.current = displayedConfig;
+        } else {
+          setDisplayedConfig(previousConfigRef.current);
+        }
+      }, 0);
+    }
+  }, [displayedConfig]);
+
   return (
     <div className="grid grid-rows-[auto_1fr_auto] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <header className="gap-4">
@@ -74,9 +93,20 @@ export default function Home() {
       </header>
       <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start" style={{ width: '100%', height: '100%' }}>
         <Accordion type="multiple" className="w-full">
-          <AccordionItem value="data-relationships">
-            <AccordionTrigger>Data Relationships</AccordionTrigger>
+          <AccordionItem value="views">
+            <AccordionTrigger>Views</AccordionTrigger>
             <AccordionContent>
+              <AccordionItem value="machine-topology" className="p-2">
+                <AccordionTrigger>Machine Topology</AccordionTrigger>
+                <AccordionContent>
+                  <div style={{ width: '100%', height: '400px', position: 'relative' }}>
+                    <ReactFlow nodes={selectedMachineEnv.key in shopFloorSetups ? shopFloorSetups[selectedMachineEnv.key].nodes : []} edges={selectedMachineEnv.key in shopFloorSetups ? shopFloorSetups[selectedMachineEnv.key].edges : [] } style={{ width: '100%', height: '100%' }}>
+                      <MiniMap />
+                      <Controls />
+                    </ReactFlow>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
               <AccordionItem value="entity-to-table-map" className="p-2">
                 <AccordionTrigger>Entity-Table Map</AccordionTrigger>
                 <AccordionContent>
@@ -140,6 +170,39 @@ export default function Home() {
               </AccordionItem>
             </AccordionContent>
           </AccordionItem>
+          <AccordionItem value="config">
+            <AccordionTrigger>Configuration</AccordionTrigger>
+            <AccordionContent>
+              <div className="flex flex-col">
+                <div className="flex justify-between p-2 border-b">
+                  <span>Start Time</span>
+                  <input 
+                    type="number" 
+                    value={displayedConfig.startTime} 
+                    onChange={(e) => {
+                      previousConfigRef.current = displayedConfig; // Store previous config before changing
+                      setDisplayedConfig({ ...displayedConfig, startTime: parseInt(e.target.value, 10) });
+                      isConfigChanged.current = true; // Mark config as changed
+                    }}
+                    className="border p-1"
+                  />
+                </div>
+                <div className="flex justify-between p-2 border-b">
+                  <span>End Time</span>
+                  <input 
+                    type="number" 
+                    value={displayedConfig.endTime} 
+                    onChange={(e) => {
+                      previousConfigRef.current = displayedConfig; // Store previous config before changing
+                      setDisplayedConfig({ ...displayedConfig, endTime: parseInt(e.target.value, 10) });
+                      isConfigChanged.current = true; // Mark config as changed
+                    }}
+                    className="border p-1"
+                  />
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
           <AccordionItem value="data-requirements">
             <AccordionTrigger>Data Tables</AccordionTrigger>
             <AccordionContent>
@@ -185,17 +248,6 @@ export default function Home() {
               </AccordionItem>
             </AccordionContent>
           </AccordionItem>
-          <AccordionItem value="flow">
-            <AccordionTrigger>Machine Topology</AccordionTrigger>
-            <AccordionContent>
-              <div style={{ width: '100%', height: '400px', position: 'relative' }}>
-                <ReactFlow nodes={selectedMachineEnv.key in shopFloorSetups ? shopFloorSetups[selectedMachineEnv.key].nodes : []} edges={selectedMachineEnv.key in shopFloorSetups ? shopFloorSetups[selectedMachineEnv.key].edges : [] } style={{ width: '100%', height: '100%' }}>
-                  <MiniMap />
-                  <Controls />
-                </ReactFlow>
-              </div>
-            </AccordionContent>
-            </AccordionItem>
         </Accordion>
       </main>
     </div>
