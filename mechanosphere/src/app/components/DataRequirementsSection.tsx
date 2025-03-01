@@ -1,10 +1,26 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { DataTableRequirements, DataTableValues } from '../types';
 import { mockDataService } from '../../services/mockDataService';
 import { fakeDataService, fakeDataGenerators, FakeDataTable } from '../../services/generateFakeDataService';
+import { useFormula } from '../context/FormulaContext';
+
+const DisplayedDataTable: React.FC<{ displayedData: DataTableValues, dataRequirements: DataTableRequirements }> = ({ displayedData, dataRequirements }) => {
+  console.log(displayedData);
+  return (
+    <div className="grid" style={{ overflowX: 'auto', gridTemplateColumns: `repeat(${Object.keys(displayedData).length}, minmax(0, 1fr))` }}>
+      {[dataRequirements.index].concat(dataRequirements.columns).map((column) => (
+        <div key={column} className="grid grid-cols-1">
+          {displayedData[column] && displayedData[column].map((value, rowIndex) => (
+            <div key={rowIndex} className="border border-bg p-2">{value}</div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+};
 
 type RequiredTableViewProps = {
   title: string;
@@ -12,6 +28,7 @@ type RequiredTableViewProps = {
 };
 
 const RequiredTableView: React.FC<RequiredTableViewProps> = ({ title, dataRequirements }) => {
+  const { selectedMachineEnv, selectedConstraints, selectedObjective } = useFormula();
   const [displayedData, setDisplayedData] = useState<DataTableValues>({
     [dataRequirements.index]: [],
     ...dataRequirements.columns.reduce((acc, column) => {
@@ -20,16 +37,27 @@ const RequiredTableView: React.FC<RequiredTableViewProps> = ({ title, dataRequir
     }, {})
   });
   
+  // Fetch data on initialization
+  useEffect(() => {
+    mockDataService.retrieveData(title).then(data => {
+      setDisplayedData(data);
+      console.log("Fetched Data on Initialization:", data); // Log the fetched data for verification
+    });
+  }, [title]); // Dependency array to refetch if title changes
+
   const generateDummyData = () => {
-    const dummyData: FakeDataTable = fakeDataService.getFakeDataGenerators()[title]();
+    const dummyData: FakeDataTable = fakeDataService.getFakeDataGenerators()[title]({selectedMachineEnv: selectedMachineEnv.key, selectedConstraints: selectedConstraints.map(constraint => constraint.key), selectedObjective: selectedObjective.key});
 
     // Upload the dummy data
     mockDataService.uploadData(title, dummyData);
 
+    // Update the displayedData state immediately after generating dummy data
+    setDisplayedData(dummyData);
+
     // Optionally, fetch the updated data from the mock service
     mockDataService.retrieveData(title).then(data => {
       setDisplayedData(data);
-        console.log("Updated Data:", data); // Log the updated data for verification
+      console.log("Updated Data:", data); // Log the updated data for verification
     });
   };
 
@@ -66,8 +94,8 @@ const RequiredTableView: React.FC<RequiredTableViewProps> = ({ title, dataRequir
         <AccordionContent>
           <div className="flex gap-2">
               <button className="bg-blue-500 text-white px-2 py-1 rounded mb-4" onClick={generateDummyData}>Generate Dummy Data</button>
-              <button className="bg-blue-500 text-white px-2 py-1 rounded mb-4" onClick={downloadCSV}>Download CSV</button>
-              <input type="file" accept=".csv" onChange={handleFileUpload} />
+              {/* <button className="bg-blue-500 text-white px-2 py-1 rounded mb-4" onClick={downloadCSV}>Download CSV</button>
+              <input type="file" accept=".csv" onChange={handleFileUpload} /> */}
           </div>
           <div key={title}>
             <div className="grid" style={{ overflowX: 'auto', gridTemplateColumns: `repeat(${1 + dataRequirements.columns.length}, minmax(0, 1fr))` }}>
@@ -76,12 +104,7 @@ const RequiredTableView: React.FC<RequiredTableViewProps> = ({ title, dataRequir
                 <div key={column} className="border border-bg p-2">{value}</div>
               ))}
             </div>
-            <div className="grid" style={{ overflowX: 'auto', gridTemplateColumns: `repeat(${1 + dataRequirements.columns.length}, minmax(0, 1fr))` }}>
-              <div key={dataRequirements.index} className="font-bold border border-bg p-2">{displayedData[dataRequirements.index][0]}</div>
-              {dataRequirements.columns.map((column) => (
-                <div key={column} className="border border-bg p-2">{displayedData[column][0]}</div>
-              ))}
-            </div>
+            <DisplayedDataTable displayedData={displayedData} dataRequirements={dataRequirements} />
           </div>
         </AccordionContent>
       </AccordionItem>

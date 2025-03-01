@@ -1,14 +1,13 @@
 'use client'
 
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
 import ReactFlow, { MiniMap, Controls } from 'react-flow-renderer';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { DataRequirementsSection } from "@/app/components/DataRequirementsSection";
-import EntityMap from './EntityMap'; // Import the new EntityMap component
-import shopFloorSetups from './shopFloorSetups';
+import EntityMap from './EntityMap'; 
 import { 
   machineEnvOptions, 
   constraintsOptions, 
@@ -20,14 +19,17 @@ import {
   tables
 } from './dataRequirements'; // Import the new data
 import { configService } from "@/services/configService";
+import { FormulaProvider, useFormula } from "@/app/context/FormulaContext";
+import { mockDataService } from "@/services/mockDataService";
+import { DataTableValues } from "./types";
 
-export default function Home() {
+const Home = () => {
   const [displayedConfig, setDisplayedConfig] = useState(configService.getConfig());
+  const { selectedMachineEnv, setSelectedMachineEnv, selectedConstraints, setSelectedConstraints, selectedObjective, setSelectedObjective } = useFormula();
   const previousConfigRef = useRef(configService.getConfig()); // Ref for previous config
-  const [selectedMachineEnv, setSelectedMachineEnv] = useState<{ symbol: string, name: string, key: string }>({ symbol: '\\alpha', name: '', key: '' });
-  const [selectedConstraints, setSelectedConstraints] = useState<{ symbol: string, name: string, key: string }[]>([]);
-  const [selectedObjective, setSelectedObjective] = useState<{ symbol: string, name: string, key: string }>({ symbol: '\\gamma', name: '', key: '' });
   const isConfigChanged = useRef(false);
+  const [machineNodes, setMachineNodes] = useState<any[]>([]);
+  const [machineEdges, setMachineEdges] = useState<any[]>([]);
 
   const toggleConstraint = (constraint: { symbol: string, name: string, key: string }) => {
     console.log(`Attempting to toggle constraint: ${constraint.symbol}`);
@@ -54,6 +56,20 @@ export default function Home() {
       }, 0);
     }
   }, [displayedConfig]);
+
+  useEffect(() => {
+    const fetchMachineData = async () => {
+      try {
+        const [nodes, edges] = await getMachinesForEnvironment(selectedMachineEnv); // Adjust this function to return nodes and edges
+        setMachineNodes(nodes);
+        setMachineEdges(edges);
+      } catch (error) {
+        console.error("Error fetching machine data:", error);
+      }
+    };
+
+    fetchMachineData();
+  }, [selectedMachineEnv]); // Dependency array to refetch when selectedMachineEnv changes
 
   return (
     <div className="grid grid-rows-[auto_1fr_auto] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
@@ -100,7 +116,11 @@ export default function Home() {
                 <AccordionTrigger>Machine Topology</AccordionTrigger>
                 <AccordionContent>
                   <div style={{ width: '100%', height: '400px', position: 'relative' }}>
-                    <ReactFlow nodes={selectedMachineEnv.key in shopFloorSetups ? shopFloorSetups[selectedMachineEnv.key].nodes : []} edges={selectedMachineEnv.key in shopFloorSetups ? shopFloorSetups[selectedMachineEnv.key].edges : [] } style={{ width: '100%', height: '100%' }}>
+                    <ReactFlow 
+                      nodes={machineNodes}
+                      edges={machineEdges}
+                      style={{ width: '100%', height: '100%' }}
+                    >
                       <MiniMap />
                       <Controls />
                     </ReactFlow>
@@ -227,7 +247,6 @@ export default function Home() {
               <AccordionItem value="constraints-tables" className="p-2">
                 <AccordionTrigger>Constraints Tables</AccordionTrigger>
                 <AccordionContent>
-                  {/* Content for Constraints Tables */}
                   <DataRequirementsSection 
                     requiredTables={selectedConstraints.reduce((acc, constraint) => {
                       console.log(constraint);
@@ -240,7 +259,6 @@ export default function Home() {
               <AccordionItem value="objective-function-tables" className="p-2">
                 <AccordionTrigger>Objective Function Tables</AccordionTrigger>
                 <AccordionContent>
-                  {/* Content for Objective Function Tables */}
                   <DataRequirementsSection 
                     requiredTables={objectiveFunctionRequirements[selectedObjective.key as keyof typeof objectiveFunctionRequirements]?.requiredTables || {}}
                   />
@@ -252,7 +270,16 @@ export default function Home() {
       </main>
     </div>
   );
-}
+};
+
+// Wrap the Home component with the FormulaProvider
+const App = () => (
+  <FormulaProvider>
+    <Home />
+  </FormulaProvider>
+);
+
+export default App;
 
 function Dropdown({ name, symbolWidth, selected, options, onSelect }: { 
   name: string;
@@ -406,4 +433,59 @@ function generatePartialOrder(): Record<string, { table: string; column: string 
   });
 
   return dependencies;
+}
+
+type MachineNodeProps = {
+  id: string;
+  type: string;
+  position: {
+      x: number;
+      y: number;
+  };
+  data: {
+      label: any;
+  };
+}
+
+type MachineEdgeProps = {
+  id: string;
+  source: string;
+  target: string;
+  type: string;
+}
+
+async function getMachinesForEnvironment(selectedMachineEnv: { key: string }): Promise<[MachineNodeProps[], MachineEdgeProps[]]> {
+  const machines: MachineNodeProps[] = [];
+  const edges: MachineEdgeProps[] = [];
+
+  const jobSource = { id: "Job Source", type: "input", position: { x: 0, y: 0 }, data: {label: "Job Source"} };
+  const jobCompleted = { id: "Job Completed", type: "output", position: { x: 300, y: 0 }, data: {label: "Job Completed"} };
+
+  // Fetch machines data from the service based on the selected machine environment
+  mockDataService.retrieveData("Machines").then((machinesData: DataTableValues) => {
+    if (!machinesData['machine_id']) {
+      return [[], []];
+    }
+
+    const length = machinesData['machine_id'].length;
+
+    // Iterate over row number
+    for (let rowNum = 0; rowNum < length; rowNum += 1) {
+      const machineName = machinesData['machine_name'][rowNum];
+      const machineNode = {
+        id: machineName,
+        type: "default",
+        position: { x: 100 + rowNum * 100, y: 100 },
+        data: { label: machineName } // Assuming machine has a name property
+      };
+      machines.push(machineNode);
+      
+      // Create edges for each machine to job source and job completed
+      edges.push({ id: `${machineNode.id}-to-Job Source`, source: machineNode.id, target: "Job Source", type: "smoothstep" });
+      edges.push({ id: `${machineNode.id}-to-Job Completed`, source: machineNode.id, target: "Job Completed", type: "smoothstep" });  
+    }
+
+  }); 
+
+  return [[jobSource, jobCompleted, ...machines], edges];
 }

@@ -35,10 +35,6 @@ export const globalDataRequirements = {
     index: "job_id",
     columns: ["job_name", "job_due_date"]
   },
-  Machines: { 
-    index: "machine_id",  
-    columns: ["machine_name"]
-  }
 };
 
 export const tables = {
@@ -122,39 +118,46 @@ export const tables = {
 export const machineEnvDataRequirements = {
   identicalParallelMachines: {
     requiredTables: {
+      Machines: tables.Machines,
       ProcessingTimes: tables.ProcessingTimes,
     }
   },
   uniformParallelMachines: {
     requiredTables: {
+      Machines: tables.Machines,
       ProcessingTimes: tables.ProcessingTimes,
       MachineSpeedFactors: tables.MachineSpeedFactors,
     }
   },
   unrelatedParallelMachines: {
     requiredTables: {
+      Machines: tables.Machines,
       ProcessingTimes: tables.ProcessingTimes,
     }
   },
   flowShop: {
     requiredTables: {
+      Machines: tables.Machines,
       ProcessingTimes: tables.ProcessingTimes,
       Routing: tables.Routing,
     }
   },
   jobShop: {
     requiredTables: {
+      Machines: tables.Machines,
       ProcessingTimes: tables.ProcessingTimes,
       Routing: tables.Routing,
     }
   },
   openShop: {
     requiredTables: {
+      Machines: tables.Machines,
       ProcessingTimes: tables.ProcessingTimes,
     }
   },
   flexibleFlowShop: {
     requiredTables: {
+      Machines: tables.Machines,
       ProcessingTimes: tables.ProcessingTimes,
       Routing: tables.Routing,
       StageAssignments: tables.StageAssignments,
