@@ -1,4 +1,4 @@
-import { mockDataService } from './mockDataService'; // Ensure this matches the export
+import { dataTableDisplayService } from './dataTableDisplayService'; // Ensure this matches the export
 
 class ConfigService {
     private config: { startTime: number; endTime: number };

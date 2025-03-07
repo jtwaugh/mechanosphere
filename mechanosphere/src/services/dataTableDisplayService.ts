@@ -2,15 +2,15 @@
 import { tables } from "@/app/dataRequirements";
 import { DataTableValues } from "@/app/types";
  
-class MockDataService {
-    private mockData: { [key: string]: DataTableValues } = {};
+class DataTableDisplayService {
+    private displayData: { [key: string]: DataTableValues } = {};
 
     constructor() {
         // Rote-initialize empty tables here
         Object.keys(tables).forEach((table: string) => {
-            this.mockData[table] = {};
+            this.displayData[table] = {};
             tables[table as keyof typeof tables].columns.forEach((column: string) => {
-                this.mockData[table][column] = [];
+                this.displayData[table][column] = [];
             });
         });
     }
@@ -18,7 +18,7 @@ class MockDataService {
     retrieveData = (tableName: string): Promise<DataTableValues> => {
         return new Promise((resolve) => {
             setTimeout(() => {
-                resolve(this.mockData[tableName]);
+                resolve(this.displayData[tableName]);
             }, 100); // Simulate network delay
         });
     };
@@ -26,7 +26,7 @@ class MockDataService {
     uploadData = (tableName: string, data: DataTableValues) => {
         // Update the mockData with the new data
         Object.keys(data).forEach((column: string) => {
-            this.mockData[tableName][column] = data[column];
+            this.displayData[tableName][column] = data[column];
         });
         
         // Simulate uploading data to a SQL server
@@ -36,10 +36,22 @@ class MockDataService {
 
     resetData = () => {
         // Logic to reset data
-        this.mockData = {}; 
+        this.displayData = {}; 
     };
 
-    // Other methods...
+    public getData() {
+        return this.displayData; // Ensure this method is defined
+    }
+
+    // New method to get all tables
+    public getAllTables() {
+        return this.displayData; // Return all tables data
+    }
+
+    // New method to get data by table name
+    public getDataByName(tableName: string) {
+        return this.displayData[tableName] || null; // Return data for specific table or null if not found
+    }
 }
 
-export const mockDataService = new MockDataService();
+export const dataTableDisplayService = new DataTableDisplayService();

@@ -6,7 +6,6 @@ import { BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
 import ReactFlow, { MiniMap, Controls } from 'react-flow-renderer';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { DataRequirementsSection } from "@/app/components/DataRequirementsSection";
 import EntityMap from './EntityMap'; 
 import { 
   machineEnvOptions, 
@@ -20,16 +19,89 @@ import {
 } from './dataRequirements'; // Import the new data
 import { configService } from "@/services/configService";
 import { FormulaProvider, useFormula } from "@/app/context/FormulaContext";
-import { mockDataService } from "@/services/mockDataService";
-import { DataTableValues } from "./types";
+import { DataTableRequirements, DataTableValues } from "./types";
+
+const DisplayedDataTable: React.FC<{ displayedData: DataTableValues, dataRequirements: DataTableRequirements }> = ({ displayedData, dataRequirements }) => {
+  console.log(displayedData);
+  return (
+    <div className="grid" style={{ overflowX: 'auto', gridTemplateColumns: `repeat(${Object.keys(displayedData).length}, minmax(0, 1fr))` }}>
+      {[dataRequirements.index].concat(dataRequirements.columns).map((column) => (
+        <div key={column} className="grid grid-cols-1">
+          {displayedData[column] && displayedData[column].map((value, rowIndex) => (
+            <div key={rowIndex} className="border border-bg p-2">{value}</div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+type RequiredTableViewProps = {
+  title: string;
+  dataRequirements: DataTableRequirements;
+  displayedData: DataTableValues;
+  onGenerateDummyData: () => void;
+};
+
+export const RequiredTableView: React.FC<RequiredTableViewProps> = ({ title, dataRequirements, displayedData, onGenerateDummyData }) => {
+  return (
+    <Accordion type="single" collapsible>
+      <AccordionItem value={title}>
+        <AccordionTrigger>{title}</AccordionTrigger>
+        <AccordionContent>
+          <div className="flex gap-2">
+              <button className="bg-blue-500 text-white px-2 py-1 rounded mb-4" onClick={() => onGenerateDummyData()}>Generate Dummy Data</button>
+          </div>
+          <div key={title}>
+            <div className="grid" style={{ overflowX: 'auto', gridTemplateColumns: `repeat(${1 + dataRequirements.columns.length}, minmax(0, 1fr))` }}>
+              <div key={dataRequirements.index} className="font-bold border border-bg p-2">{dataRequirements.index}</div>
+              {dataRequirements.columns.map((value, column) => (
+                <div key={column} className="border border-bg p-2">{value}</div>
+              ))}
+            </div>
+            <DisplayedDataTable displayedData={displayedData} dataRequirements={dataRequirements} />
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
+  );
+};
+
+type DataRequirementsSectionProps = {
+  requiredTables: {
+      [key: string]: DataTableRequirements;
+  }
+  displayedTables: {
+      [key: string]: DataTableValues;
+  }
+};
+
+const DataRequirementsSection: React.FC<DataRequirementsSectionProps> = ({ requiredTables, displayedTables }) => {
+  return (
+      <div className="p-2" style={{ width: '100%', position: 'relative', overflow: 'auto' }}>
+          {
+          Object.entries(requiredTables).map(([tableName, table]) => (
+              <RequiredTableView 
+                key={tableName}
+                title={tableName}
+                dataRequirements={requiredTables[tableName]}
+                displayedData={displayedTables[tableName]}
+                onGenerateDummyData={() => {}}
+              />
+          ))}
+      </div>
+  );
+}
 
 const Home = () => {
   const [displayedConfig, setDisplayedConfig] = useState(configService.getConfig());
   const { selectedMachineEnv, setSelectedMachineEnv, selectedConstraints, setSelectedConstraints, selectedObjective, setSelectedObjective } = useFormula();
-  const previousConfigRef = useRef(configService.getConfig()); // Ref for previous config
+  const previousConfigRef = useRef(configService.getConfig());
   const isConfigChanged = useRef(false);
   const [machineNodes, setMachineNodes] = useState<any[]>([]);
   const [machineEdges, setMachineEdges] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [allData, setAllData] = useState<{ [key: string]: DataTableValues }>({});
 
   const toggleConstraint = (constraint: { symbol: string, name: string, key: string }) => {
     console.log(`Attempting to toggle constraint: ${constraint.symbol}`);
@@ -58,18 +130,31 @@ const Home = () => {
   }, [displayedConfig]);
 
   useEffect(() => {
-    const fetchMachineData = async () => {
+    const [nodes, edges] = getMachinesForEnvironment(allData['Machines']); // Adjust this function to return nodes and edges
+    setMachineNodes(nodes);
+    setMachineEdges(edges);
+    console.log(machineEnvDataRequirements[selectedMachineEnv.key as keyof typeof machineEnvDataRequirements]);
+  }, [selectedMachineEnv, allData]); // Dependency array to refetch when selectedMachineEnv changes
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
       try {
-        const [nodes, edges] = await getMachinesForEnvironment(selectedMachineEnv); // Adjust this function to return nodes and edges
-        setMachineNodes(nodes);
-        setMachineEdges(edges);
+        const response = await fetch('/api/dataTableDisplay'); // Call the API endpoint directly
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        const data = await response.json(); // Parse the JSON data
+        setAllData(data); // Store the fetched data
       } catch (error) {
-        console.error("Error fetching machine data:", error);
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchMachineData();
-  }, [selectedMachineEnv]); // Dependency array to refetch when selectedMachineEnv changes
+    fetchData();
+  }, []);
 
   return (
     <div className="grid grid-rows-[auto_1fr_auto] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
@@ -226,22 +311,26 @@ const Home = () => {
           <AccordionItem value="data-requirements">
             <AccordionTrigger>Data Tables</AccordionTrigger>
             <AccordionContent>
-              <AccordionItem value="global-tables" className="p-2">
-                <AccordionTrigger>Business Tables</AccordionTrigger>
-                <AccordionContent>
-                  <DataRequirementsSection 
-                    requiredTables={globalDataRequirements}
-                  />
-                </AccordionContent>
-              </AccordionItem>
+              {loading ? (
+                <div>Loading...</div>
+              ) : (
+                <AccordionItem value="global-tables" className="p-2">
+                  <AccordionTrigger>Business Tables</AccordionTrigger>
+                  <AccordionContent>
+                    <DataRequirementsSection 
+                      requiredTables={globalDataRequirements}
+                      displayedTables={allData}
+                    />
+                  </AccordionContent>
+                </AccordionItem>
+              )}
               <AccordionItem value="machine-env-tables" className="p-2">
                 <AccordionTrigger>Machine Environment Tables</AccordionTrigger>
                 <AccordionContent>
-                  {Object.keys(machineEnvDataRequirements).includes(selectedMachineEnv.key) && 
-                    <DataRequirementsSection 
-                      requiredTables={machineEnvDataRequirements[selectedMachineEnv.key as keyof typeof machineEnvDataRequirements]?.requiredTables || {}}
-                    />
-                  }
+                  <DataRequirementsSection 
+                    requiredTables={machineEnvDataRequirements[selectedMachineEnv.key as keyof typeof machineEnvDataRequirements]?.requiredTables || {}}
+                    displayedTables={allData}
+                  />
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="constraints-tables" className="p-2">
@@ -249,10 +338,10 @@ const Home = () => {
                 <AccordionContent>
                   <DataRequirementsSection 
                     requiredTables={selectedConstraints.reduce((acc, constraint) => {
-                      console.log(constraint);
                       const requiredTables = constraintsDataRequirements[constraint.key as keyof typeof constraintsDataRequirements]?.requiredTables || {};
                       return { ...acc, ...requiredTables };
                     }, {})}
+                    displayedTables={allData}
                   />
                 </AccordionContent>
               </AccordionItem>
@@ -261,6 +350,7 @@ const Home = () => {
                 <AccordionContent>
                   <DataRequirementsSection 
                     requiredTables={objectiveFunctionRequirements[selectedObjective.key as keyof typeof objectiveFunctionRequirements]?.requiredTables || {}}
+                    displayedTables={allData}
                   />
                 </AccordionContent>
               </AccordionItem>
@@ -454,38 +544,34 @@ type MachineEdgeProps = {
   type: string;
 }
 
-async function getMachinesForEnvironment(selectedMachineEnv: { key: string }): Promise<[MachineNodeProps[], MachineEdgeProps[]]> {
+function getMachinesForEnvironment(machinesData: DataTableValues): [MachineNodeProps[], MachineEdgeProps[]] {
   const machines: MachineNodeProps[] = [];
   const edges: MachineEdgeProps[] = [];
 
-  const jobSource = { id: "Job Source", type: "input", position: { x: 0, y: 0 }, data: {label: "Job Source"} };
-  const jobCompleted = { id: "Job Completed", type: "output", position: { x: 300, y: 0 }, data: {label: "Job Completed"} };
+  const jobSource = { id: "Job Source", type: "input", position: { x: 0, y: 0 }, data: { label: "Job Source" } };
+  const jobCompleted = { id: "Job Completed", type: "output", position: { x: 300, y: 0 }, data: { label: "Job Completed" } };
 
-  // Fetch machines data from the service based on the selected machine environment
-  mockDataService.retrieveData("Machines").then((machinesData: DataTableValues) => {
-    if (!machinesData['machine_id']) {
-      return [[], []];
-    }
+  if (!machinesData || !machinesData['machine_id']) {
+    return [[], []];
+  }
 
-    const length = machinesData['machine_id'].length;
+  const length = machinesData['machine_id'].length;
 
-    // Iterate over row number
-    for (let rowNum = 0; rowNum < length; rowNum += 1) {
-      const machineName = machinesData['machine_name'][rowNum];
-      const machineNode = {
-        id: machineName,
-        type: "default",
-        position: { x: 100 + rowNum * 100, y: 100 },
-        data: { label: machineName } // Assuming machine has a name property
-      };
-      machines.push(machineNode);
-      
-      // Create edges for each machine to job source and job completed
-      edges.push({ id: `${machineNode.id}-to-Job Source`, source: machineNode.id, target: "Job Source", type: "smoothstep" });
-      edges.push({ id: `${machineNode.id}-to-Job Completed`, source: machineNode.id, target: "Job Completed", type: "smoothstep" });  
-    }
-
-  }); 
+  // Iterate over row number
+  for (let rowNum = 0; rowNum < length; rowNum += 1) {
+    const machineName = machinesData['machine_name'][rowNum];
+    const machineNode = {
+      id: machineName,
+      type: "default",
+      position: { x: 100 + rowNum * 100, y: 100 },
+      data: { label: machineName } // Assuming machine has a name property
+    };
+    machines.push(machineNode);
+    
+    // Create edges for each machine to job source and job completed
+    edges.push({ id: `${machineNode.id}-to-Job Source`, source: machineNode.id, target: "Job Source", type: "smoothstep" });
+    edges.push({ id: `${machineNode.id}-to-Job Completed`, source: machineNode.id, target: "Job Completed", type: "smoothstep" });  
+  }
 
   return [[jobSource, jobCompleted, ...machines], edges];
 }
